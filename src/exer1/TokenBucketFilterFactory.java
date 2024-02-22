@@ -1,3 +1,7 @@
+package exer1;
+
+import exer1.TokenBucketFilter;
+
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -38,28 +42,40 @@ public class TokenBucketFilterFactory {
             fillerThread.start();
         }
 
-        public synchronized void getToken()  {
-            while (currSize == 0) {
-                try {
-                    consumer.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    return;
+        public void getToken()  {
+            lock.lock();
+            try {
+                while (currSize == 0) {
+                    consumer.await();
                 }
+
+                currSize--;
+                System.out.println(
+                        "Consumer token by thread: , " + Thread.currentThread().getName()
+                        + ". CurrSize: " + currSize
+                        + ". Time of consumption: " + System.currentTimeMillis());
+                producer.signal();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                lock.unlock();
             }
-            currSize--;
-            System.out.println(
-                    "Obtained token by thread: , " + Thread.currentThread().getName() + ". CurrSize: " + currSize);
-            producer.signal();
         }
 
-        public synchronized void fill() throws InterruptedException {
-            if (currSize < maxSize) {
-                producer.wait();
+        public void fill() throws InterruptedException {
+            lock.lock();
+            try {
+                if (currSize >= maxSize) {
+                    producer.await();
+                }
+
                 int x = ++currSize;
-                System.out.println("Incremented number of tokens to: " + x);
+                System.out.println("Incremented number of tokens to: " + x + ". " +
+                        "Time of production: " + System.currentTimeMillis());
+                consumer.signal();
+            } finally {
+                lock.unlock();
             }
-            consumer.notify();
         }
     }
 
